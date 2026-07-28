@@ -1,12 +1,36 @@
 package main
 
-import ( "strconv"; "net/http"; "encoding/json"; "fmt")
+import ( "strconv"; "net/http"; "encoding/json"; "fmt"; "html/template"; "github.com/julienschmidt/httprouter")
 
-func (app *application )home(w http.ResponseWriter, r *http.Request){
-    if r.URL.Path != "/" {
-        app.clientError(w, http.StatusBadRequest)
+
+func (app *application) homePage(w http.ResponseWriter, r *http.Request){
+    boxes,err := app.dbconn.Latest()
+    if err != nil{
+        app.serverError(w,err)
+    }
+    tempData := &templateData{
+        Boxes: boxes,
+    }
+    files := []string{
+        "./ui/html/base.tmpl",
+        "./ui/html/partials/nav.html",
+        "./ui/html/pages/home.tmpl",
+        }
+    ts, err := template.ParseFiles(files...)
+    if err != nil {
+        app.serverError(w, err)
         return
     }
+    
+    err = ts.ExecuteTemplate(w, "base", tempData)
+    if err != nil {
+        app.serverError(w, err)
+        return
+    }
+}
+
+func (app *application )home(w http.ResponseWriter, r *http.Request){
+
     boxes, err := app.dbconn.Latest()
     if err != nil{
         app.serverError(w, err)
@@ -31,11 +55,7 @@ func (app *application )apiview(w http.ResponseWriter, r *http.Request){
     json.NewEncoder(w).Encode(map[string]int{"id":id})
 }
 
-func (app *application) apicreate( w http.ResponseWriter, r *http.Request){
-    if r.Method != "POST" {
-        w.Header().Set("Allow", http.MethodPost)
-        app.clientError(w, http.StatusMethodNotAllowed)
-    }
+func (app *application) apiCreatePost( w http.ResponseWriter, r *http.Request){
     title := "O snail"
     content := "O snail\nClimb Mount Fuji,\nBut slowly, slowly!\n\n– Kobayashi Issa"
     expires := 7
@@ -47,7 +67,7 @@ func (app *application) apicreate( w http.ResponseWriter, r *http.Request){
         return
     }
     
-    http.Redirect(w,r, fmt.Sprintf("/still?id=%d", id), http.StatusSeeOther)
+    http.Redirect(w,r, fmt.Sprintf("/still/%d", id), http.StatusSeeOther)
     w.Write([]byte("Data inserted"))
 }
 
@@ -58,17 +78,50 @@ func (app *application) greet(w http.ResponseWriter, r *http.Request){
 }
 
 func (app *application) cnt( w http.ResponseWriter, r *http.Request){
+    params := httprouter.ParamsFromContext(r.Context())
     app.infoLog.Printf("This was called to cnt")
-    value, err := strconv.Atoi(r.URL.Query().Get("id"))
+    id, err := strconv.Atoi(params.ByName("id"))
     if err != nil {
-        app.serverError(w, err)
+        app.serverError(w, err)                                  
         return
     }
-    rec, err := app.dbconn.Get(value)
+    rec, err := app.dbconn.Get(id)
     if err != nil {
         app.serverError(w, err)
         return
     }
     fmt.Println("The value is ",rec.Id)
     fmt.Fprintf(w, "This is your id: %+v", rec.Title)
+}
+
+func (app *application) formCreate( w http.ResponseWriter, r *http.Request){
+    fmt.Fprintf(w, "This is a place holder")
+}
+
+func (app *application) boxViewGet( w http.ResponseWriter, r *http.Request){
+    params := httprouter.ParamsFromContext(r.Context())
+    id, err := strconv.Atoi(params.ByName("id"))
+    
+    rec, err := app.dbconn.Get(id)
+    
+    tempData := &templateData{
+        Box: rec,
+    }
+    files := []string{
+        "./ui/html/base.tmpl",
+        "./ui/html/partials/nav.html",
+        "./ui/html/pages/view.html",
+    }
+    
+    ts, err := template.ParseFiles(files...)
+    if err != nil {
+        app.errLog.Print(err)
+        app.serverError(w,err)
+    }
+    err = ts.ExecuteTemplate(w, "base", tempData)
+    
+    if err != nil {
+        app.errLog.Print(err)
+        app.serverError(w, err)
+    }
 }
