@@ -10,7 +10,8 @@ func (app *application) routes() *httprouter.Router{
     router := httprouter.New()
     router.HandlerFunc(http.MethodGet, "/", app.homePage)
     router.HandlerFunc(http.MethodGet, "/still/:id", app.boxViewGet)
-    router.HandlerFunc(http.MethodGet, "/create", app.greet)
+    router.HandlerFunc(http.MethodGet, "/create", app.formCreateGet)
+    router.HandlerFunc(http.MethodPost, "/create", app.formCreatePost)
     router.Handler(http.MethodGet, "/static/*filepath", http.StripPrefix("/static/", fileServer))
     
     return router

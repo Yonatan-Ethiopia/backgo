@@ -1,6 +1,14 @@
 package main
 
-import ( "strconv"; "net/http"; "encoding/json"; "fmt"; "html/template"; "github.com/julienschmidt/httprouter")
+import ( "strconv"; "net/http"; "encoding/json"; "fmt"; _ "html/template"; "github.com/julienschmidt/httprouter"; "strings"; "unicode/utf8")
+
+
+type boxCreateForm struct{
+    Title string
+    Content string
+    Expires_at int
+    FieldErrors map[string]string
+}
 
 
 func (app *application) homePage(w http.ResponseWriter, r *http.Request){
@@ -8,39 +16,9 @@ func (app *application) homePage(w http.ResponseWriter, r *http.Request){
     if err != nil{
         app.serverError(w,err)
     }
-    tempData := &templateData{
-        Boxes: boxes,
-    }
-    files := []string{
-        "./ui/html/base.tmpl",
-        "./ui/html/partials/nav.html",
-        "./ui/html/pages/home.tmpl",
-        }
-    ts, err := template.ParseFiles(files...)
-    if err != nil {
-        app.serverError(w, err)
-        return
-    }
-    
-    err = ts.ExecuteTemplate(w, "base", tempData)
-    if err != nil {
-        app.serverError(w, err)
-        return
-    }
-}
-
-func (app *application )home(w http.ResponseWriter, r *http.Request){
-
-    boxes, err := app.dbconn.Latest()
-    if err != nil{
-        app.serverError(w, err)
-        return
-    }
-    
-    for _, box := range boxes{
-        fmt.Fprintf(w, "%+v\n", box)
-    }
-    
+    tempData := app.newTemplateData(r)
+    tempData.Boxes = boxes
+    app.render(w, 200, "home.tmpl", tempData)
 }
 
 func (app *application )apiview(w http.ResponseWriter, r *http.Request){
@@ -94,34 +72,80 @@ func (app *application) cnt( w http.ResponseWriter, r *http.Request){
     fmt.Fprintf(w, "This is your id: %+v", rec.Title)
 }
 
-func (app *application) formCreate( w http.ResponseWriter, r *http.Request){
-    fmt.Fprintf(w, "This is a place holder")
+func (app *application) formCreateGet( w http.ResponseWriter, r *http.Request){
+    data := app.newTemplateData(r)
+    data.Form = &boxCreateForm{
+        Expires_at: 365,
+    }
+    app.render(w, 200, "create.tmpl", data)
+}
+
+func (app *application) formCreatePost( w http.ResponseWriter, r *http.Request){
+    err := r.ParseForm()
+    if err != nil{
+        app.serverError(w, err)
+        return
+    }
+    
+    title := r.PostForm.Get("title")
+    content := r.PostForm.Get("content")
+    
+    expires, err := strconv.Atoi(r.PostForm.Get("expires"))
+    if err != nil{
+        app.clientError(w, http.StatusBadRequest)
+        return
+    }
+    form := &boxCreateForm{
+        Title: title,
+        Content: content,
+        Expires_at: expires,
+        FieldErrors: map[string]string{},
+    }
+    
+    if strings.TrimSpace(title) == "" {
+        form.FieldErrors["title"] ="This field cannot be blank"
+    }
+    if utf8.RuneCountInString(title) > 100 {
+        form.FieldErrors["title"] = "This field cannot be more than 100 characters"
+    }
+    
+    if strings.TrimSpace(content) == "" {
+        form.FieldErrors["content"] ="This field cannot be blank"
+    }
+    
+    if expires != 1 && expires != 7 && expires != 365 {
+        form.FieldErrors["expires"] = "This field must equal 1, 7 or 365"
+    }
+    
+    if len(form.FieldErrors) > 0 {
+        data := app.newTemplateData(r)
+        data.Form = form
+        app.render(w, http.StatusUnprocessableEntity, "create.tmpl", data)
+        
+        return
+    }
+    
+    id, err := app.dbconn.Insert(form.Title, form.Content, form.Expires_at)
+    if err != nil{
+        app.serverError(w, err)
+        return
+    }
+    http.Redirect(w, r, fmt.Sprintf("/still/%d", id), http.StatusSeeOther)
 }
 
 func (app *application) boxViewGet( w http.ResponseWriter, r *http.Request){
     params := httprouter.ParamsFromContext(r.Context())
     id, err := strconv.Atoi(params.ByName("id"))
-    
-    rec, err := app.dbconn.Get(id)
-    
-    tempData := &templateData{
-        Box: rec,
-    }
-    files := []string{
-        "./ui/html/base.tmpl",
-        "./ui/html/partials/nav.html",
-        "./ui/html/pages/view.html",
-    }
-    
-    ts, err := template.ParseFiles(files...)
-    if err != nil {
-        app.errLog.Print(err)
-        app.serverError(w,err)
-    }
-    err = ts.ExecuteTemplate(w, "base", tempData)
-    
-    if err != nil {
-        app.errLog.Print(err)
+    if err != nil{
         app.serverError(w, err)
     }
+    
+    rec, err := app.dbconn.Get(id)
+    if err != nil{
+        app.serverError(w, err)
+    }
+    
+    tempData := app.newTemplateData(r)
+    tempData.Box = rec
+    app.render(w, 200, "view.tmpl", tempData)
 }

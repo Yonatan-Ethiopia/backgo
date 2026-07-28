@@ -2,6 +2,7 @@ package main
 
 import (
         "net/http"
+        "html/template"
         "log"
         "flag"
         "os"
@@ -16,6 +17,7 @@ type application struct{
     errLog *log.Logger
     infoLog *log.Logger
     dbconn *models.Conn
+    templateCache map[string]*template.Template
 }
 
 func main(){
@@ -35,10 +37,16 @@ func main(){
     
     defer db.Close()
     
+    templateCache, err := newTemplateCache()
+    if err != nil{
+        errLog.Fatal(err)
+    }
+    
     app := &application{
         errLog: errLog,
         infoLog: infoLog,
         dbconn : &models.Conn{DB: db},
+        templateCache : templateCache,
     }
 
     srv := &http.Server{
