@@ -129,3 +129,20 @@ func (app *application) boxViewGet( w http.ResponseWriter, r *http.Request){
     tempData.Box = rec
     app.render(w, 200, "view.tmpl", tempData)
 }
+
+
+func (app *application) userSignUpGet(w http.ResponseWriter, r *http.Request){
+    
+}
+func (app *application) userSignUpPost(w http.ResponseWriter, r *http.Request){
+    
+}
+func (app *application) userLogInGet(w http.ResponseWriter, r *http.Request){
+    
+}
+func (app *application) userLogInPost(w http.ResponseWriter, r *http.Request){
+    
+}
+func (app *application) userLogOutPost(w http.ResponseWriter, r *http.Request){
+    
+}

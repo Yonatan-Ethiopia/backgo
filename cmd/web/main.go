@@ -19,7 +19,8 @@ import (
 type application struct{
     errLog *log.Logger
     infoLog *log.Logger
-    dbconn *models.Conn
+    dbconn *models.BoxConn
+    userconn *models.UserModel
     templateCache map[string]*template.Template
     formDecoder *form.Decoder
     sessionManager *scs.SessionManager
@@ -56,7 +57,8 @@ func main(){
     app := &application{
         errLog: errLog,
         infoLog: infoLog,
-        dbconn : &models.Conn{DB: db},
+        dbconn : &models.BoxConn{DB: db},
+        userconn : &models.UserModel{DB: db},
         templateCache : templateCache,
         formDecoder : formDecoder,
         sessionManager: sessionManager,

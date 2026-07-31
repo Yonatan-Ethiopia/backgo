@@ -17,11 +17,11 @@ type RecRow struct{
 
 //We will use this to store the DB model which will hold the connection or allow us to talk to the DB
 
-type Conn struct{
+type BoxConn struct{
     DB *sql.DB
 }
 
-func (c *Conn) Insert(title string, content string, expires_at int) (int, error){
+func (c *BoxConn) Insert(title string, content string, expires_at int) (int, error){
     
     stm := "INSERT INTO boxes (title, content, created, expires) VALUES (?, ?, UTC_TIMESTAMP(),DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? DAY))"
     
@@ -40,7 +40,7 @@ func (c *Conn) Insert(title string, content string, expires_at int) (int, error)
     return int(id), nil
 }
 
-func (c *Conn) Get(id int) (*RecRow, error){
+func (c *BoxConn) Get(id int) (*RecRow, error){
     stm := "SELECT * FROM boxes WHERE UTC_TIMESTAMP < expires AND id = ?"
     
     row := c.DB.QueryRow(stm, id)
@@ -60,7 +60,7 @@ func (c *Conn) Get(id int) (*RecRow, error){
     return rec, nil
 }
 
-func (c *Conn) Latest() ([]*RecRow, error){
+func (c *BoxConn) Latest() ([]*RecRow, error){
     stm := "SELECT * FROM boxes WHERE UTC_TIMESTAMP < expires ORDER BY id DESC LIMIT 10"
     
     rows, err := c.DB.Query(stm)
