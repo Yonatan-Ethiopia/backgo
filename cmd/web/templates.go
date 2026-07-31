@@ -7,6 +7,7 @@ type templateData struct{
     Boxes []*models.RecRow
     CurrentYear int
     Form any
+    Flash string
 }
 
 func newTemplateCache() (map[string]*template.Template, error){

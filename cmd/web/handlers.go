@@ -1,13 +1,13 @@
 package main
 
-import ( "strconv"; "net/http"; "encoding/json"; "fmt"; _ "html/template"; "github.com/julienschmidt/httprouter"; "strings"; "unicode/utf8")
+import ( "strconv"; "net/http"; "encoding/json"; "fmt"; _ "html/template"; "github.com/julienschmidt/httprouter"; _ "strings"; _ "unicode/utf8"; "backgo/internal/validator")
 
 
 type boxCreateForm struct{
-    Title string
-    Content string
-    Expires_at int
-    FieldErrors map[string]string
+    Title               string `form:"title"`
+    Content             string `form:"content"`
+    Expires_at          int    `form:"expires_at"`
+    validator.Validator `form:"-"`
 }
 
 
@@ -81,47 +81,25 @@ func (app *application) formCreateGet( w http.ResponseWriter, r *http.Request){
 }
 
 func (app *application) formCreatePost( w http.ResponseWriter, r *http.Request){
-    err := r.ParseForm()
-    if err != nil{
-        app.serverError(w, err)
-        return
-    }
+
+    var form boxCreateForm
     
-    title := r.PostForm.Get("title")
-    content := r.PostForm.Get("content")
-    
-    expires, err := strconv.Atoi(r.PostForm.Get("expires"))
+    err := app.decodePostForm(r, &form)
     if err != nil{
+        fmt.Printf("There is an error")
         app.clientError(w, http.StatusBadRequest)
         return
     }
-    form := &boxCreateForm{
-        Title: title,
-        Content: content,
-        Expires_at: expires,
-        FieldErrors: map[string]string{},
-    }
+    fmt.Printf("The expiry date is %d", form.Expires_at)
+    form.CheckField(validator.NotBlank(form.Title), "title", "This field cannot be blank")
+    form.CheckField(validator.NotBlank(form.Content), "content", "This field cannot be blank")
+    form.CheckField(validator.MaxChars(form.Title, 100), "title", "This field cannot be longer then 100 characters")
+    form.CheckField(validator.PermittedInt(form.Expires_at, 1,7,365), "expires", "This field cannot be a value other then 1, 7 or 365")
     
-    if strings.TrimSpace(title) == "" {
-        form.FieldErrors["title"] ="This field cannot be blank"
-    }
-    if utf8.RuneCountInString(title) > 100 {
-        form.FieldErrors["title"] = "This field cannot be more than 100 characters"
-    }
-    
-    if strings.TrimSpace(content) == "" {
-        form.FieldErrors["content"] ="This field cannot be blank"
-    }
-    
-    if expires != 1 && expires != 7 && expires != 365 {
-        form.FieldErrors["expires"] = "This field must equal 1, 7 or 365"
-    }
-    
-    if len(form.FieldErrors) > 0 {
+    if !form.Valid(){
         data := app.newTemplateData(r)
         data.Form = form
         app.render(w, http.StatusUnprocessableEntity, "create.tmpl", data)
-        
         return
     }
     
@@ -130,6 +108,8 @@ func (app *application) formCreatePost( w http.ResponseWriter, r *http.Request){
         app.serverError(w, err)
         return
     }
+    
+    app.sessionManager.Put(r.Context(),"flash","Box succefully created!")
     http.Redirect(w, r, fmt.Sprintf("/still/%d", id), http.StatusSeeOther)
 }
 

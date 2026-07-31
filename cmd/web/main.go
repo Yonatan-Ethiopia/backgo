@@ -6,10 +6,13 @@ import (
         "log"
         "flag"
         "os"
-        
+        "time"
         "backgo/internal/models"
         
         _ "github.com/go-sql-driver/mysql"
+        "github.com/go-playground/form/v4"
+        "github.com/alexedwards/scs/mysqlstore"
+        "github.com/alexedwards/scs/v2"
         
     )
     
@@ -18,6 +21,8 @@ type application struct{
     infoLog *log.Logger
     dbconn *models.Conn
     templateCache map[string]*template.Template
+    formDecoder *form.Decoder
+    sessionManager *scs.SessionManager
 }
 
 func main(){
@@ -42,11 +47,19 @@ func main(){
         errLog.Fatal(err)
     }
     
+    formDecoder := form.NewDecoder()
+    
+    sessionManager := scs.New()
+    sessionManager.Store = mysqlstore.New(db)
+    sessionManager.Lifetime = 12 * time.Hour
+    
     app := &application{
         errLog: errLog,
         infoLog: infoLog,
         dbconn : &models.Conn{DB: db},
         templateCache : templateCache,
+        formDecoder : formDecoder,
+        sessionManager: sessionManager,
     }
 
     srv := &http.Server{

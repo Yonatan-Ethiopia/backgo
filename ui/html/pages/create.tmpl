@@ -24,16 +24,16 @@ empty. -->
 <div>
 <label>Delete in:</label>
 <!-- And render the value of .Form.FieldErrors.expires_at if it is not empty. -->
-{{with .Form.FieldErrors.expires_at}}
+{{with .Form.FieldErrors.expires}}
 <label class='error'>{{.}}</label>
 {{end}}
 <!-- Here we use the `if` action to check if the value of the re-populated
 expires field equals 365. If it does, then we render the `checked`
 attribute so that the radio input is re-selected. -->
-<input type='radio' name='expires' value='365' {{if (eq .Form.Expires_at 365)}}checked{{end}}> One Year
+<input type='radio' name='expires_at' value='365' {{if (eq .Form.Expires_at 365)}}checked{{end}}> One Year
 <!-- And we do the same for the other possible values too... -->
-<input type='radio' name='expires' value='7' {{if (eq .Form.Expires_at 7)}}checked{{end}}> One Week
-<input type='radio' name='expires' value='1' {{if (eq .Form.Expires_at 1)}}checked{{end}}> One Day
+<input type='radio' name='expires_at' value='7' {{if (eq .Form.Expires_at 7)}}checked{{end}}> One Week
+<input type='radio' name='expires_at' value='1' {{if (eq .Form.Expires_at 1)}}checked{{end}}> One Day
 </div>
 <div>
 <input type='submit' value='Publish snippet'>
