@@ -8,6 +8,7 @@ type templateData struct{
     CurrentYear int
     Form any
     Flash string
+    IsAuthenticated bool
 }
 
 func newTemplateCache() (map[string]*template.Template, error){

@@ -1,12 +1,25 @@
 package main
 
-import ( "strconv"; "net/http"; "encoding/json"; "fmt"; _ "html/template"; "github.com/julienschmidt/httprouter"; _ "strings"; _ "unicode/utf8"; "backgo/internal/validator")
+import ( "strconv"; "net/http"; "encoding/json"; "fmt"; _ "html/template"; "github.com/julienschmidt/httprouter"; _ "strings"; _ "unicode/utf8"; "backgo/internal/validator"; "errors"; "backgo/internal/models")
 
 
 type boxCreateForm struct{
     Title               string `form:"title"`
     Content             string `form:"content"`
     Expires_at          int    `form:"expires_at"`
+    validator.Validator `form:"-"`
+}
+
+type userSignUpForm struct{
+    Name                string `form:"name"`
+    Email               string `form:"email"`
+    Password            string `form:"password"`
+    validator.Validator `form:"-"`
+}
+
+type userLoginForm struct{
+    Email               string `form:"email"`
+    Password            string `form:"password"`
     validator.Validator `form:"-"`
 }
 
@@ -132,17 +145,112 @@ func (app *application) boxViewGet( w http.ResponseWriter, r *http.Request){
 
 
 func (app *application) userSignUpGet(w http.ResponseWriter, r *http.Request){
-    
+    data := app.newTemplateData(r)
+    data.Form = userSignUpForm{}
+    app.render(w, 200, "signup.tmpl", data)
 }
 func (app *application) userSignUpPost(w http.ResponseWriter, r *http.Request){
+    var user userSignUpForm
+    
+    err := app.decodePostForm(r, &user)
+    if err != nil{
+        app.clientError(w, http.StatusBadRequest)
+        return
+    }
+    user.CheckField(validator.NotBlank(user.Name), "name", "This field cannot be blank")
+    user.CheckField(validator.NotBlank(user.Email), "email", "This field cannot be blank")
+    user.CheckField(validator.NotBlank(user.Password), "password", "This field cannot be blank")
+    
+    user.CheckField(validator.MinChars(user.Password, 8), "password", "Password must be atleast 8 characters long")
+    user.CheckField(validator.ValidEmailAddress(user.Email, validator.EmailRX), "email", "Invalid email address")
+    
+    if !user.Valid(){
+         data := app.newTemplateData(r)
+         data.Form = user
+         app.render(w, http.StatusUnprocessableEntity, "signup.tmpl", data)
+         return
+    }
+    
+    err = app.userconn.Insert(user.Name, user.Email, user.Password)
+    if err != nil{
+        if errors.Is(err, models.ErrDuplicateEmail){
+            user.AddFieldError("email", "Email already exists!")
+            data := app.newTemplateData(r)
+            data.Form = user
+            app.render(w, http.StatusUnprocessableEntity, "signup.tmpl", data)
+            return
+        } else {
+            app.serverError(w, err)
+        }
+        
+        return
+    }
+    app.sessionManager.Put(r.Context(), "flash", "Your signup was successful. Please login.")
+    http.Redirect(w, r, "/user/login", http.StatusSeeOther)
     
 }
 func (app *application) userLogInGet(w http.ResponseWriter, r *http.Request){
+    data := app.newTemplateData(r)
+    data.Form = userLoginForm{}
+    
+    app.render(w, http.StatusOK, "login.tmpl", data)
     
 }
 func (app *application) userLogInPost(w http.ResponseWriter, r *http.Request){
     
+    var user userLoginForm
+    var id int
+    err := app.decodePostForm(r, &user)
+    if err != nil{
+        app.clientError(w, http.StatusBadRequest)
+        return
+    }
+    
+    user.CheckField(validator.NotBlank(user.Email), "email", "This section cannot be empty")
+    user.CheckField(validator.ValidEmailAddress(user.Email, validator.EmailRX), "email", "Invalid email address")
+    user.CheckField(validator.NotBlank(user.Password), "password", "This section cannot be empty")
+    user.CheckField(validator.MinChars(user.Password, 8), "password", "Password needs to be atleast 8 characters long.")
+    
+    if !user.Valid(){
+        data := app.newTemplateData(r)
+        data.Form = user
+        app.render(w, http.StatusUnprocessableEntity, "login.tmpl", data)
+        return
+    }
+    
+    id, err = app.userconn.Authenticate(user.Email, user.Password)
+    if err != nil{
+        if errors.Is(err, models.ErrInvalidCredentials){
+            user.AddNonFieldError("Incorrect email or password")
+            data := app.newTemplateData(r)
+            data.Form = user
+            app.render(w, http.StatusBadRequest, "login.tmpl", data)
+            return
+        }
+            app.serverError(w, err)
+            return
+    }
+    err = app.sessionManager.RenewToken(r.Context())
+    if err != nil{
+        app.serverError(w, err)
+        return
+    }
+    
+    app.sessionManager.Put(r.Context(), "authenticatedUserId", id)
+    
+    http.Redirect(w, r, "/create", http.StatusSeeOther)
+    
 }
 func (app *application) userLogOutPost(w http.ResponseWriter, r *http.Request){
+    err := app.sessionManager.RenewToken(r.Context())
+    if err != nil{
+        app.serverError(w, err)
+        return
+    }
     
+    app.sessionManager.Remove(r.Context(), "authenticatedUserId")
+    
+    app.sessionManager.Put(r.Context(), "flash", "You have successfully logged out! ")
+    
+    http.Redirect(w,r, "/", http.StatusSeeOther)
 }
