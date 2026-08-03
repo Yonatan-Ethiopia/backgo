@@ -1,6 +1,6 @@
 package main
 
-import ( "strconv"; "net/http"; "encoding/json"; "fmt"; _ "html/template"; "github.com/julienschmidt/httprouter"; _ "strings"; _ "unicode/utf8"; "backgo/internal/validator"; "errors"; "backgo/internal/models")
+import ( "strconv"; "net/http"; "fmt"; _ "html/template"; "github.com/julienschmidt/httprouter"; _ "strings"; _ "unicode/utf8"; "backgo/internal/validator"; "errors"; "backgo/internal/models")
 
 
 type boxCreateForm struct{
@@ -38,18 +38,6 @@ func (app *application) homePage(w http.ResponseWriter, r *http.Request){
     app.render(w, 200, "home.tmpl", tempData)
 }
 
-func (app *application )apiview(w http.ResponseWriter, r *http.Request){
-    print("here")
-    id, err := strconv.Atoi(r.URL.Query().Get("id"))
-    if err != nil || id < 1{
-        http.NotFound(w, r)
-        return
-    }
-    w.Header().Set("Content-Type", "application/json")
-    //fmt.Fprintf(w, "The id is %d", id)
-    json.NewEncoder(w).Encode(map[string]int{"id":id})
-}
-
 func (app *application) apiCreatePost( w http.ResponseWriter, r *http.Request){
     title := "O snail"
     content := "O snail\nClimb Mount Fuji,\nBut slowly, slowly!\n\n– Kobayashi Issa"
@@ -64,29 +52,6 @@ func (app *application) apiCreatePost( w http.ResponseWriter, r *http.Request){
     
     http.Redirect(w,r, fmt.Sprintf("/still/%d", id), http.StatusSeeOther)
     w.Write([]byte("Data inserted"))
-}
-
-
-func (app *application) greet(w http.ResponseWriter, r *http.Request){
-    fmt.Fprintf(w, "HI there this is from b")
-    app.infoLog.Printf("Hi there nigros")
-}
-
-func (app *application) cnt( w http.ResponseWriter, r *http.Request){
-    params := httprouter.ParamsFromContext(r.Context())
-    app.infoLog.Printf("This was called to cnt")
-    id, err := strconv.Atoi(params.ByName("id"))
-    if err != nil {
-        app.serverError(w, err)                                  
-        return
-    }
-    rec, err := app.dbconn.Get(id)
-    if err != nil {
-        app.serverError(w, err)
-        return
-    }
-    fmt.Println("The value is ",rec.Id)
-    fmt.Fprintf(w, "This is your id: %+v", rec.Title)
 }
 
 func (app *application) formCreateGet( w http.ResponseWriter, r *http.Request){
@@ -134,17 +99,17 @@ func (app *application) boxViewGet( w http.ResponseWriter, r *http.Request){
     params := httprouter.ParamsFromContext(r.Context())
     id, err := strconv.Atoi(params.ByName("id"))
     if err != nil{
-        app.serverError(w, err)
+        app.notFound(w)
     }
     
     rec, err := app.dbconn.Get(id)
     if err != nil{
-        app.serverError(w, err)
+        app.notFound(w)
     }
     
     tempData := app.newTemplateData(r)
     tempData.Box = rec
-    app.render(w, 200, "view.tmpl", tempData)
+    app.render(w, http.StatusOK, "view.tmpl", tempData)
 }
 
 

@@ -43,7 +43,7 @@ func main(){
     
     defer db.Close()
     
-    templateCache, err := newTemplateCache()
+    templateCache, err := newTemplateCache("./ui/html/pages/*.tmpl", "./ui/html/base.tmpl","./ui/html/partials/*.tmpl")
     if err != nil{
         errLog.Fatal(err)
     }

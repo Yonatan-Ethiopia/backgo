@@ -20,7 +20,7 @@ type testServer struct{
 
 func newTestApplication(t *testing.T) *application{
     
-    templateCache, err := newTemplateCache()
+    templateCache, err := newTemplateCache("../../ui/html/pages/*.tmpl", "../../ui/html/base.tmpl", "../../ui/html/partials/*.tmpl")
     if err != nil{
         t.Fatal(err)
     }
