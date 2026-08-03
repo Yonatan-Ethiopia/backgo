@@ -24,6 +24,10 @@ type userLoginForm struct{
 }
 
 
+func ping(w http.ResponseWriter, r *http.Request) {
+    w.Write([]byte("OK"))
+}
+
 func (app *application) homePage(w http.ResponseWriter, r *http.Request){
     boxes,err := app.dbconn.Latest()
     if err != nil{

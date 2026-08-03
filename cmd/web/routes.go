@@ -8,10 +8,14 @@ import (
 
 func (app *application) routes() *httprouter.Router{
     
-    baseMiddleware := alice.New(app.sessionManager.LoadAndSave, app.authenticate)
+    baseMiddleware := alice.New(secureHeaders, app.sessionManager.LoadAndSave, app.authenticate)
     protected := baseMiddleware.Append(app.requireAuthentication)
     fileServer := http.FileServer(http.Dir("./ui/static/"))
+    
     router := httprouter.New()
+    
+    router.HandlerFunc(http.MethodGet, "/ping", ping)
+    
     router.Handler(http.MethodGet, "/", baseMiddleware.ThenFunc(http.HandlerFunc(app.homePage)))
     router.Handler(http.MethodGet, "/still/:id", baseMiddleware.ThenFunc(http.HandlerFunc(app.boxViewGet)))
     router.Handler(http.MethodGet, "/create", protected.ThenFunc(http.HandlerFunc(app.formCreateGet)))

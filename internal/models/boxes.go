@@ -21,6 +21,12 @@ type BoxConn struct{
     DB *sql.DB
 }
 
+type BoxInterface interface{
+    Insert(title string, content string, expires_at int) (int, error)
+    Get(id int) (*RecRow, error)
+    Latest() ([]*RecRow, error)
+}
+
 func (c *BoxConn) Insert(title string, content string, expires_at int) (int, error){
     
     stm := "INSERT INTO boxes (title, content, created, expires) VALUES (?, ?, UTC_TIMESTAMP(),DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? DAY))"

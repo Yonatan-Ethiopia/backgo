@@ -19,8 +19,8 @@ import (
 type application struct{
     errLog *log.Logger
     infoLog *log.Logger
-    dbconn *models.BoxConn
-    userconn *models.UserModel
+    dbconn models.BoxInterface
+    userconn models.UserInterface
     templateCache map[string]*template.Template
     formDecoder *form.Decoder
     sessionManager *scs.SessionManager
