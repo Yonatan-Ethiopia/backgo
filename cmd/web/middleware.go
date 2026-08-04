@@ -5,10 +5,16 @@ import (
         "context"
         "fmt"
         "github.com/justinas/nosurf"
+        "log"
 )
 
 func noSurf( next http.Handler) http.Handler{
     csrfHandler := nosurf.New(next)
+    
+    csrfHandler.SetFailureHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        log.Printf("NOSURF FAILED: reason=%v", nosurf.Reason(r))
+        http.Error(w, "Bad Request", http.StatusBadRequest)
+    }))
     csrfHandler.SetBaseCookie(http.Cookie{
         HttpOnly: true,
         Path: "/",

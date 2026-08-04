@@ -95,7 +95,7 @@ func TestUserSignup(t *testing.T){
     
     _,_, body := ts.get(t, "/user/signup")
     validCSRFToken := extractCSRFToken(t, body)
-    
+    t.Log("CSRF:", validCSRFToken)
     const (
         validName = "Bob"
         validPassword = "validPassword"
