@@ -16,7 +16,7 @@ func (u *User) Insert(name, email, password string) error {
 }
 
 func (u *User) Authenticate(email, password string) (int, error){
-    if email == "dupe@exmaple.com" && password == "pass"{
+    if email == "dupe@exmaple.com" && password == "validPassword"{
          return 1, nil
     }
     

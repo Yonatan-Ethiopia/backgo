@@ -134,6 +134,8 @@ func (app *application) userSignUpPost(w http.ResponseWriter, r *http.Request){
     user.CheckField(validator.ValidEmailAddress(user.Email, validator.EmailRX), "email", "Invalid email address")
     
     if !user.Valid(){
+        fmt.Printf("DEBUG - Decoded user struct: %+v\n", user)
+        fmt.Printf("DEBUG - Validation errors:   %+v\n", user.FieldErrors)
          data := app.newTemplateData(r)
          data.Form = user
          app.render(w, http.StatusUnprocessableEntity, "signup.tmpl", data)

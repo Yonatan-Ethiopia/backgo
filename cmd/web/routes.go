@@ -8,7 +8,7 @@ import (
 
 func (app *application) routes() *httprouter.Router{
     
-    baseMiddleware := alice.New(secureHeaders, app.sessionManager.LoadAndSave, app.authenticate)
+    baseMiddleware := alice.New(app.recoverPanic, secureHeaders, app.sessionManager.LoadAndSave, noSurf,app.authenticate)
     protected := baseMiddleware.Append(app.requireAuthentication)
     fileServer := http.FileServer(http.Dir("./ui/static/"))
     
@@ -23,8 +23,8 @@ func (app *application) routes() *httprouter.Router{
     router.Handler(http.MethodGet, "/static/*filepath", http.StripPrefix("/static/", fileServer))
 
          
-    router.Handler(http.MethodGet, "/user/signup", app.sessionManager.LoadAndSave(http.HandlerFunc(app.userSignUpGet)))
-    router.Handler(http.MethodPost, "/user/signup", app.sessionManager.LoadAndSave(http.HandlerFunc(app.userSignUpPost)))
+    router.Handler(http.MethodGet, "/user/signup", app.sessionManager.LoadAndSave(noSurf(http.HandlerFunc(app.userSignUpGet))))
+    router.Handler(http.MethodPost, "/user/signup", app.sessionManager.LoadAndSave(noSurf(http.HandlerFunc(app.userSignUpPost))))
     
     router.Handler(http.MethodGet, "/user/login", baseMiddleware.ThenFunc(http.HandlerFunc(app.userLogInGet)))
     router.Handler(http.MethodPost, "/user/login", baseMiddleware.ThenFunc(http.HandlerFunc(app.userLogInPost)))

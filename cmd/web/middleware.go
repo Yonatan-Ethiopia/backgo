@@ -3,7 +3,19 @@ package main
 import (
         "net/http"
         "context"
+        "fmt"
+        "github.com/justinas/nosurf"
 )
+
+func noSurf( next http.Handler) http.Handler{
+    csrfHandler := nosurf.New(next)
+    csrfHandler.SetBaseCookie(http.Cookie{
+        HttpOnly: true,
+        Path: "/",
+        Secure: true,
+    })
+    return csrfHandler
+}
 
 func secureHeaders( next http.Handler) http.Handler{
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request){
@@ -13,6 +25,22 @@ func secureHeaders( next http.Handler) http.Handler{
         w.Header().Set("X-XSS-Protection", "0")
         
         next.ServeHTTP(w,r)
+    })
+}
+
+func (app *application) recoverPanic(next http.Handler) http.Handler{
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request){
+        
+        defer func(){
+            if err := recover(); err != nil{
+                w.Header().Set("Connection", "close")
+                
+                app.serverError(w, fmt.Errorf("%s", err))
+            }
+        }()
+        
+        next.ServeHTTP(w, r)
+        
     })
 }
 
