@@ -20,6 +20,9 @@ func (app *application) routes() *httprouter.Router{
     router.Handler(http.MethodGet, "/still/:id", baseMiddleware.ThenFunc(http.HandlerFunc(app.boxViewGet)))
     router.Handler(http.MethodGet, "/create", protected.ThenFunc(http.HandlerFunc(app.formCreateGet)))
     router.Handler(http.MethodPost, "/create", protected.ThenFunc(http.HandlerFunc(app.formCreatePost)))
+    router.Handler(http.MethodGet, "/account/view",protected.ThenFunc(http.HandlerFunc(app.viewAccount)))
+    router.Handler(http.MethodGet, "/account/password/update", protected.ThenFunc(http.HandlerFunc(app.changePassGet)))
+    router.Handler(http.MethodPost, "/account/password/update", protected.ThenFunc(http.HandlerFunc(app.changePassPost)))
     router.Handler(http.MethodGet, "/static/*filepath", http.StripPrefix("/static/", fileServer))
 
          
@@ -29,6 +32,8 @@ func (app *application) routes() *httprouter.Router{
     router.Handler(http.MethodGet, "/user/login", baseMiddleware.ThenFunc(http.HandlerFunc(app.userLogInGet)))
     router.Handler(http.MethodPost, "/user/login", baseMiddleware.ThenFunc(http.HandlerFunc(app.userLogInPost)))
     router.Handler(http.MethodPost, "/user/logout", protected.ThenFunc(http.HandlerFunc(app.userLogOutPost)))
+    
+    router.Handler(http.MethodGet, "/about", baseMiddleware.ThenFunc(http.HandlerFunc(app.aboutPage)))
     
     return router
 }

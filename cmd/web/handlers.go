@@ -23,6 +23,13 @@ type userLoginForm struct{
     validator.Validator `form:"-"`
 }
 
+type PassChangeForm struct {
+    CurrentPassword     string `form:"currentPassword"`
+    NewPassword         string `form:"newPassword"`
+    ConfirmPassword     string `form:"newPasswordConfirmation"`
+    validator.Validator `form:"-"`
+}
+
 
 func ping(w http.ResponseWriter, r *http.Request) {
     w.Write([]byte("OK"))
@@ -36,22 +43,6 @@ func (app *application) homePage(w http.ResponseWriter, r *http.Request){
     tempData := app.newTemplateData(r)
     tempData.Boxes = boxes
     app.render(w, 200, "home.tmpl", tempData)
-}
-
-func (app *application) apiCreatePost( w http.ResponseWriter, r *http.Request){
-    title := "O snail"
-    content := "O snail\nClimb Mount Fuji,\nBut slowly, slowly!\n\n– Kobayashi Issa"
-    expires := 7
-    
-    id, err := app.dbconn.Insert(title, content, expires)
-    if err != nil{
-        app.infoLog.Printf("Not succefull")
-        app.serverError(w, err)
-        return
-    }
-    
-    http.Redirect(w,r, fmt.Sprintf("/still/%d", id), http.StatusSeeOther)
-    w.Write([]byte("Data inserted"))
 }
 
 func (app *application) formCreateGet( w http.ResponseWriter, r *http.Request){
@@ -68,11 +59,9 @@ func (app *application) formCreatePost( w http.ResponseWriter, r *http.Request){
     
     err := app.decodePostForm(r, &form)
     if err != nil{
-        fmt.Printf("There is an error")
         app.clientError(w, http.StatusBadRequest)
         return
     }
-    fmt.Printf("The expiry date is %d", form.Expires_at)
     form.CheckField(validator.NotBlank(form.Title), "title", "This field cannot be blank")
     form.CheckField(validator.NotBlank(form.Content), "content", "This field cannot be blank")
     form.CheckField(validator.MaxChars(form.Title, 100), "title", "This field cannot be longer then 100 characters")
@@ -134,8 +123,6 @@ func (app *application) userSignUpPost(w http.ResponseWriter, r *http.Request){
     user.CheckField(validator.ValidEmailAddress(user.Email, validator.EmailRX), "email", "Invalid email address")
     
     if !user.Valid(){
-        fmt.Printf("DEBUG - Decoded user struct: %+v\n", user)
-        fmt.Printf("DEBUG - Validation errors:   %+v\n", user.FieldErrors)
          data := app.newTemplateData(r)
          data.Form = user
          app.render(w, http.StatusUnprocessableEntity, "signup.tmpl", data)
@@ -171,6 +158,7 @@ func (app *application) userLogInPost(w http.ResponseWriter, r *http.Request){
     
     var user userLoginForm
     var id int
+    redirectURL := "/create"
     err := app.decodePostForm(r, &user)
     if err != nil{
         app.clientError(w, http.StatusBadRequest)
@@ -205,11 +193,14 @@ func (app *application) userLogInPost(w http.ResponseWriter, r *http.Request){
     if err != nil{
         app.serverError(w, err)
         return
-    }
+    }                                  
     
     app.sessionManager.Put(r.Context(), "authenticatedUserId", id)
-    
-    http.Redirect(w, r, "/create", http.StatusSeeOther)
+    url := app.sessionManager.PopString(r.Context(), "redirectUrl")
+    if url != "" {
+        redirectURL = url
+    }
+    http.Redirect(w, r, redirectURL, http.StatusSeeOther)
     
 }
 func (app *application) userLogOutPost(w http.ResponseWriter, r *http.Request){
@@ -224,4 +215,77 @@ func (app *application) userLogOutPost(w http.ResponseWriter, r *http.Request){
     app.sessionManager.Put(r.Context(), "flash", "You have successfully logged out! ")
     
     http.Redirect(w,r, "/", http.StatusSeeOther)
+}
+
+func(app *application) aboutPage(w http.ResponseWriter, r *http.Request){
+    data := app.newTemplateData(r)
+    app.render(w, http.StatusOK, "about.tmpl", data)
+}
+
+
+func (app *application) viewAccount(w http.ResponseWriter, r *http.Request){
+    id := app.sessionManager.GetInt(r.Context(), "authenticatedUserId")
+    flash := app.sessionManager.PopString(r.Context(), "flash")
+    userDetail, err := app.userconn.Get(id)
+    if err != nil{
+        if errors.Is(err, models.ErrNoRecord){
+             http.Redirect(w, r, "/user/login", http.StatusSeeOther)
+        }
+        app.serverError(w, err)
+    }
+    
+    data := app.newTemplateData(r)
+    data.Form = userDetail
+    data.Flash = flash
+    app.render(w, http.StatusOK, "account.tmpl", data)
+    
+}
+
+func (app *application) changePassGet(w http.ResponseWriter, r *http.Request){
+    data := app.newTemplateData(r)
+    data.Form = &PassChangeForm{}
+    
+    app.render(w, http.StatusOK, "password.tmpl", data)
+}
+
+func (app *application) changePassPost(w http.ResponseWriter, r *http.Request){
+    var passForm PassChangeForm
+    var match bool
+    id := app.sessionManager.GetInt(r.Context(), "authenticatedUserId")
+    err := app.decodePostForm(r, &passForm)
+    if err != nil{
+        app.serverError(w, err)
+    }
+    passForm.CheckField(validator.NotBlank(passForm.CurrentPassword), "currentPassword", "This field cannot be blank" )
+    passForm.CheckField(validator.NotBlank(passForm.NewPassword), "newPassword", "This field cannot be blank" )
+    passForm.CheckField(validator.MinChars(passForm.NewPassword, 8), "newPassword", "This field cannot be blank" )
+    
+    passForm.CheckField(validator.NotBlank(passForm.ConfirmPassword), "newPasswordConfirmation", "This field cannot be blank" )
+    
+    passForm.CheckField((passForm.NewPassword == passForm.ConfirmPassword), "newPasswordConfirmation", "The passwords do not match")
+    
+    match, err = app.userconn.Match(id, passForm.CurrentPassword)
+    if err != nil{
+        fmt.Printf("Debug here!!")
+        app.serverError(w, err)
+    }
+    passForm.CheckField(match, "currentPassword", "Wrong Password")
+    
+    if !passForm.Valid() {
+        data := app.newTemplateData(r)
+        data.Form = passForm
+        app.render(w, http.StatusUnprocessableEntity,"password.tmpl", data)
+        return
+    }
+    
+    err = app.userconn.UpdatePass(id, passForm.NewPassword)
+    if err != nil{
+        if errors.Is(err, models.ErrInvalidCredentials){
+            app.clientError(w, http.StatusBadRequest)
+        }
+        app.serverError(w, err)
+    }
+    
+    app.sessionManager.Put(r.Context(), "flash", "Your password is succefully changed")
+    http.Redirect(w,r, "/account/view", http.StatusSeeOther)
 }

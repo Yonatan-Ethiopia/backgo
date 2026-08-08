@@ -6,6 +6,8 @@ import (
     
 type User struct{}
 
+type ResponseUser struct{}
+
 func (u *User) Insert(name, email, password string) error {
     switch email {
         case "dupe@example.com":
@@ -30,4 +32,16 @@ func (u *User) Exists(id int) (bool, error){
         default: 
             return false, nil
     }
+}
+
+func (u *User) Get(id int) (*ResponseUser, error){
+    validResponse := &ResponseUser{
+        Name: "Dup",
+        Email: "dup@gmail.com",
+        Created: time.Now(),
+    }
+    if id == 1{
+        return validResponse, nil
+    }
+    return nil, models.ErrNoRecord
 }

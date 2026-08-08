@@ -1,6 +1,7 @@
 package models
 
 import(
+    "fmt"
     "time"
     "database/sql"
     "errors"
@@ -17,10 +18,19 @@ type User struct{
     Created         time.Time
 }
 
+type ResponseUser struct{
+    Name    string
+    Email   string
+    Created time.Time
+}
+
 type UserInterface interface{
     Insert(name, email, password string) (error)
     Authenticate(email, password string) (int, error)
     Exists(id int) (bool, error)
+    Get(id int) (*ResponseUser, error)
+    Match(id int, password string) (bool, error)
+    UpdatePass(id int, new_pass string) (error)
 }
 
 type UserModel struct{
@@ -87,6 +97,78 @@ func (u *UserModel) Exists(id int) (bool, error){
     err := u.DB.QueryRow(stmt, id).Scan(&exists)
     
     return exists, err
+    
+}
+
+func (u *UserModel) Get(id int) (*ResponseUser, error){
+    responseUser := &ResponseUser{}
+    
+    stmt := "SELECT name, email, created FROM users WHERE id = ?"
+    
+    err := u.DB.QueryRow(stmt, id).Scan(&responseUser.Name, &responseUser.Email, &responseUser.Created )
+    
+    if err != nil{
+        if errors.Is(err, sql.ErrNoRows){
+            return nil, ErrNoRecord
+        }
+        return nil, err
+    }
+    
+    return responseUser, nil
+}
+
+func (u *UserModel) Match(id int, password string) (bool, error){
+
+    var hashedPassword []byte
+    
+    stmt := "SELECT hashed_password FROM users WHERE id = ?"
+    
+    err := u.DB.QueryRow(stmt, id).Scan(&hashedPassword)
+    if err != nil{
+        if errors.Is(err, sql.ErrNoRows){
+            fmt.Printf("Debug no id for %d", id)
+            return false, ErrInvalidCredentials
+        } else {
+            return false, err
+        }
+    }
+    
+    err = bcrypt.CompareHashAndPassword(hashedPassword, []byte(password))
+    if err != nil{
+        if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+            return false, nil
+        } else {
+            return false, err
+        }
+    }
+    
+    return true, nil
+    
+    
+}
+
+func (u *UserModel) UpdatePass(id int, new_pass string) error{
+    
+    var userData User
+    
+    stmt := "SELECT * FROM users WHERE id = ?"
+    err := u.DB.QueryRow(stmt, id).Scan(&userData.Id, &userData.Name, &userData.Email, &userData.HashedPassword, &userData.Created)
+    if err != nil{
+        if errors.Is(err, sql.ErrNoRows){
+            return ErrInvalidCredentials
+        }
+        return err
+    }
+    hashedPassword, err := bcrypt.GenerateFromPassword([]byte(new_pass), 12)
+    if err != nil{
+        return err
+    }
+    
+    stmt = "UPDATE users SET hashed_password = ? WHERE id = ?"
+    
+    _,err = u.DB.Exec(stmt, string(hashedPassword), id)
+    return err
+    
     
 }
 

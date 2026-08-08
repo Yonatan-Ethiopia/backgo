@@ -24,13 +24,14 @@ type application struct{
     templateCache map[string]*template.Template
     formDecoder *form.Decoder
     sessionManager *scs.SessionManager
+    debugMode bool
 }
 
 func main(){
     add := flag.String("code", ":4000", "HTTP network address")
 
     dsn := flag.String("dsn", "backgo:ppp@/dropbox?parseTime=true", "MySQL data source name")
-
+    debugMode := flag.Bool("debug", false, "Enable debug mode")
     flag.Parse()
     
     infoLog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
@@ -63,6 +64,7 @@ func main(){
         templateCache : templateCache,
         formDecoder : formDecoder,
         sessionManager: sessionManager,
+        debugMode: *debugMode,
     }
 
     srv := &http.Server{
